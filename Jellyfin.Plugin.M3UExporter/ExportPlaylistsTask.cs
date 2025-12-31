@@ -90,7 +90,13 @@ public class ExportPlaylistsTask : IScheduledTask
 
             try
             {
-                var user = _userManager.GetUserById(Guid.Parse(userId));
+                if (!Guid.TryParse(userId, out var userGuid))
+                {
+                    _logger.LogWarning("Invalid user ID format: {UserId}", userId);
+                    continue;
+                }
+
+                var user = _userManager.GetUserById(userGuid);
                 if (user == null)
                 {
                     _logger.LogWarning("User with ID {UserId} not found", userId);
