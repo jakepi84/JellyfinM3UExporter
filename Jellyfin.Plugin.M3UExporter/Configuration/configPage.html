@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>M3U Exporter</title>
+</head>
+<body>
+    <div id="M3UExporterConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-select,emby-checkbox">
+        <div data-role="content">
+            <div class="content-primary">
+                <form id="M3UExporterConfigForm">
+                    <div class="verticalSection">
+                        <h2>User Selection</h2>
+                        <div class="fieldDescription">Select which users' playlists should be exported</div>
+                        <div id="userCheckboxContainer" style="margin-top: 1em;">
+                            <!-- User checkboxes will be dynamically added here -->
+                        </div>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="ExportDirectory">Export Directory</label>
+                        <input id="ExportDirectory" name="ExportDirectory" type="text" is="emby-input" />
+                        <div class="fieldDescription">Directory path within the Jellyfin Music library to export M3U files to (e.g., "Playlists" or leave empty for music library root)</div>
+                    </div>
+                    <div>
+                        <button is="emby-button" type="submit" class="raised button-submit block emby-button">
+                            <span>Save</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <script type="text/javascript">
+            var M3UExporterConfig = {
+                pluginUniqueId: 'a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d'
+            };
+
+            function loadUsers() {
+                return ApiClient.getUsers().then(function(users) {
+                    var container = document.querySelector('#userCheckboxContainer');
+                    container.innerHTML = '';
+                    
+                    users.forEach(function(user) {
+                        var checkboxDiv = document.createElement('div');
+                        checkboxDiv.className = 'checkboxContainer checkboxContainer-withDescription';
+                        
+                        var label = document.createElement('label');
+                        label.className = 'emby-checkbox-label';
+                        
+                        var checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.is = 'emby-checkbox';
+                        checkbox.className = 'userCheckbox';
+                        checkbox.value = user.Id;
+                        checkbox.id = 'user_' + user.Id;
+                        
+                        var span = document.createElement('span');
+                        span.textContent = user.Name;
+                        
+                        label.appendChild(checkbox);
+                        label.appendChild(span);
+                        checkboxDiv.appendChild(label);
+                        container.appendChild(checkboxDiv);
+                    });
+                    
+                    return users;
+                });
+            }
+
+            document.querySelector('#M3UExporterConfigPage')
+                .addEventListener('pageshow', function() {
+                    Dashboard.showLoadingMsg();
+                    
+                    Promise.all([
+                        loadUsers(),
+                        ApiClient.getPluginConfiguration(M3UExporterConfig.pluginUniqueId)
+                    ]).then(function(results) {
+                        var config = results[1];
+                        
+                        // Set selected users
+                        var selectedUserIds = config.SelectedUserIds || [];
+                        document.querySelectorAll('.userCheckbox').forEach(function(checkbox) {
+                            checkbox.checked = selectedUserIds.indexOf(checkbox.value) !== -1;
+                        });
+                        
+                        // Set export directory
+                        document.querySelector('#ExportDirectory').value = config.ExportDirectory || '';
+                        
+                        Dashboard.hideLoadingMsg();
+                    });
+                });
+
+            document.querySelector('#M3UExporterConfigForm')
+                .addEventListener('submit', function(e) {
+                    Dashboard.showLoadingMsg();
+                    
+                    ApiClient.getPluginConfiguration(M3UExporterConfig.pluginUniqueId).then(function (config) {
+                        // Get selected user IDs
+                        var selectedUserIds = [];
+                        document.querySelectorAll('.userCheckbox:checked').forEach(function(checkbox) {
+                            selectedUserIds.push(checkbox.value);
+                        });
+                        
+                        config.SelectedUserIds = selectedUserIds;
+                        config.ExportDirectory = document.querySelector('#ExportDirectory').value;
+                        
+                        ApiClient.updatePluginConfiguration(M3UExporterConfig.pluginUniqueId, config).then(function (result) {
+                            Dashboard.processPluginConfigurationUpdateResult(result);
+                        });
+                    });
+
+                    e.preventDefault();
+                    return false;
+                });
+        </script>
+    </div>
+</body>
+</html>
