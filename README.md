@@ -11,6 +11,12 @@ A Jellyfin plugin that exports user music playlists to M3U files.
 - Safety limits: Maximum 1000 playlists and 40,000 tracks per playlist
 - Creates a ".ignore" file in the export folder so Jellyfin will not pick these lists up and duplicate
 
+## Why did you make this?
+
+I did not, mostly used Copilot to write this so the code is going to be 99% AI, take this project with a big grain of salt. I wanted to fix one specific problem. I maintain Playlists in Jellyfin as my source of truth for my music library. I also use the amazing [Bettermix](https://github.com/StergiosBinopoulos/jellyfin-plugin-bettermix) Plugin to generate daily playlists for me. The missing piece was being able to play these playlists from my Sonos App, since Sonos has no integration with Jellyfin.
+
+This allows me to schedule an export of my playlists after the Bettermix plugin runs, then I have my Sonos scheduled to scan my music library after all of this. Now I can have a "Daily Mix" in Sonos completly local and selfhosted from my library on my NAS.
+
 ## Installation
 
 ### From Plugin Repository (Recommended)
