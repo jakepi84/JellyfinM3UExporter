@@ -100,11 +100,16 @@ jobs:
         run: |
           REPO_URL="https://github.com/${{ github.repository }}/releases/download/${{ needs.build.outputs.tag_name }}"
           
-          for zipfile in ./artifacts/*.zip; do
-            if [ -f "$zipfile" ]; then
-              echo "Adding $zipfile to manifest"
-              jprm --verbosity=debug repo add --plugin-url="${REPO_URL}/$(basename $zipfile)" . "$zipfile"
-            fi
+          shopt -s nullglob
+          zipfiles=(./artifacts/*.zip)
+          if [ ${#zipfiles[@]} -eq 0 ]; then
+            echo "Error: No zip files found in ./artifacts/"
+            exit 1
+          fi
+          
+          for zipfile in "${zipfiles[@]}"; do
+            echo "Adding $zipfile to manifest"
+            jprm --verbosity=debug repo add --plugin-url="${REPO_URL}/$(basename "$zipfile")" . "$zipfile"
           done
 
       - name: Commit and Push Manifest
@@ -116,7 +121,25 @@ jobs:
             echo "No changes to manifest.json"
           else
             git commit -m "Update manifest.json for ${{ needs.build.outputs.tag_name }}"
-            git push origin main
+            
+            # Try to push with retries to handle potential race conditions
+            max_retries=3
+            retry_count=0
+            while [ $retry_count -lt $max_retries ]; do
+              if git push origin main; then
+                echo "Successfully pushed manifest.json"
+                break
+              else
+                retry_count=$((retry_count + 1))
+                if [ $retry_count -lt $max_retries ]; then
+                  echo "Push failed, attempt $retry_count of $max_retries. Pulling and retrying..."
+                  git pull --rebase origin main
+                else
+                  echo "Failed to push after $max_retries attempts"
+                  exit 1
+                fi
+              fi
+            done
           fi
 
       - name: Upload Manifest Artifact
