@@ -48,13 +48,15 @@ To create a new release of the plugin:
 
 3. The GitHub Actions workflow will automatically:
    - Build the plugin
-   - Create a manifest.json file compatible with Jellyfin
+   - Create/update a `manifest.json` file compatible with Jellyfin plugin repositories
    - Package the plugin as a zip file
-   - Create a GitHub release with the artifacts and checksums
+   - Commit the updated `manifest.json` back to the main branch
+   - Create a GitHub release with the artifacts, checksums, and manifest
 
-4. The release artifacts can then be used to:
+4. The release artifacts and repository can then be used to:
    - Install the plugin manually in Jellyfin by extracting the zip to the plugins directory
-   - Add to a Jellyfin plugin repository by using the generated manifest.json
+   - Add this repository as a plugin source in Jellyfin using the repository URL: `https://github.com/jakepi84/JellyfinM3UExporter/raw/main/manifest.json`
+   - The `manifest.json` in this repository tracks all released versions of the plugin
 
 ### Troubleshooting Release Builds
 
