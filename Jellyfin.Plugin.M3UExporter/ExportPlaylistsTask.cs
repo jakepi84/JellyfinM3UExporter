@@ -5,7 +5,8 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Jellyfin.Data.Entities;
+using Jellyfin.Data.Enums;
+using Jellyfin.Database.Implementations.Entities;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Playlists;
@@ -121,16 +122,8 @@ public class ExportPlaylistsTask : IScheduledTask
     /// <inheritdoc />
     public IEnumerable<TaskTriggerInfo> GetDefaultTriggers()
     {
-        // Run weekly on Sunday at 2 AM by default
-        return new[]
-        {
-            new TaskTriggerInfo
-            {
-                Type = TaskTriggerInfo.TriggerWeekly,
-                DayOfWeek = DayOfWeek.Sunday,
-                TimeOfDayTicks = TimeSpan.FromHours(2).Ticks
-            }
-        };
+        // Return empty - let user configure schedule in Jellyfin UI
+        return Array.Empty<TaskTriggerInfo>();
     }
 
     private async Task ExportUserPlaylistsAsync(User user, string exportDirectory, CancellationToken cancellationToken)
@@ -179,6 +172,14 @@ public class ExportPlaylistsTask : IScheduledTask
         var exportPath = Path.Combine(musicLibraryPath, exportDirectory);
         Directory.CreateDirectory(exportPath);
 
+        // Create .ignore file to prevent Jellyfin from reimporting these M3U files
+        var ignoreFilePath = Path.Combine(exportPath, ".ignore");
+        if (!File.Exists(ignoreFilePath))
+        {
+            await File.WriteAllTextAsync(ignoreFilePath, string.Empty, cancellationToken).ConfigureAwait(false);
+            _logger.LogInformation("Created .ignore file at: {IgnoreFilePath}", ignoreFilePath);
+        }
+
         _logger.LogInformation("Exporting playlists to: {ExportPath}", exportPath);
 
         // Export each playlist
@@ -202,10 +203,31 @@ public class ExportPlaylistsTask : IScheduledTask
 
     private async Task ExportPlaylistAsync(Playlist playlist, User user, string exportPath, string musicLibraryPath, CancellationToken cancellationToken)
     {
-        _logger.LogDebug("Exporting playlist: {PlaylistName}", playlist.Name);
+        _logger.LogDebug("Exporting playlist: {PlaylistName} (ID: {Id})", playlist.Name, playlist.Id);
 
-        // Get playlist items
-        var items = playlist.GetChildren(user, true).Where(i => i is MediaBrowser.Controller.Entities.Audio.Audio).ToList();
+        List<MediaBrowser.Controller.Entities.Audio.Audio> items = new List<MediaBrowser.Controller.Entities.Audio.Audio>();
+        
+        // Use GetManageableItems to get playlist items - this is the proper API for retrieving playlist contents
+        try
+        {
+            var playlistItems = playlist.GetManageableItems().ToList();
+            _logger.LogDebug("GetManageableItems returned {Count} items for playlist {PlaylistName}", playlistItems.Count, playlist.Name);
+            
+            foreach (var linkedItem in playlistItems)
+            {
+                // GetManageableItems returns Tuple<LinkedChild, BaseItem> where Item2 is the actual item
+                if (linkedItem.Item2 is MediaBrowser.Controller.Entities.Audio.Audio audioItem)
+                {
+                    items.Add(audioItem);
+                }
+            }
+            
+            _logger.LogDebug("Found {Count} audio items in playlist {PlaylistName}", items.Count, playlist.Name);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to retrieve items from playlist {PlaylistName}", playlist.Name);
+        }
 
         if (items.Count == 0)
         {

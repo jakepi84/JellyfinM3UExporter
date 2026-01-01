@@ -9,6 +9,7 @@ A Jellyfin plugin that exports user music playlists to M3U files.
 - Scheduled task for automated exports
 - M3U files use relative paths for portability
 - Safety limits: Maximum 1000 playlists and 40,000 tracks per playlist
+- Creates a ".ignore" file in the export folder so Jellyfin will not pick these lists up and duplicate
 
 ## Configuration
 
@@ -20,8 +21,8 @@ A Jellyfin plugin that exports user music playlists to M3U files.
 
 ## Requirements
 
-- Jellyfin 10.9.0 or later
-- .NET 8.0
+- Jellyfin 10.11.5 or later
+- .NET 9.0
 
 ## Building
 
