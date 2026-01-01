@@ -11,6 +11,18 @@ GitHub Actions only triggers workflows when:
 2. The workflow file exists at the commit that the tag points to ❌
 
 ## Solution
+You have two options to fix this issue:
+
+### Option A: Move the Tag (Recommended)
+This ensures future automatic triggers will work correctly.
+
+### Option B: Manual Workflow Trigger
+This is a quick fix that doesn't require moving the tag, useful if you want to keep the existing tag history.
+
+---
+
+## Option A: Move the Tag to the Correct Commit
+
 You need to move the tag to point to a commit that includes the workflow file.
 
 ### Step-by-Step Fix
@@ -38,6 +50,34 @@ You need to move the tag to point to a commit that includes the workflow file.
    - You should see a new workflow run for "Publish Plugin" triggered by the tag push
    - Wait for the build to complete (usually 2-5 minutes)
    - Check https://github.com/jakepi84/JellyfinM3UExporter/releases for the new release
+
+---
+
+## Option B: Manually Trigger the Workflow
+
+The workflow now supports manual triggering, which allows you to build and release any existing tag without moving it.
+
+### Step-by-Step Fix
+
+1. **Go to the Actions tab:**
+   - Navigate to https://github.com/jakepi84/JellyfinM3UExporter/actions/workflows/publish.yaml
+
+2. **Trigger the workflow:**
+   - Click the "Run workflow" button (on the right side)
+   - Select the branch: `main`
+   - Enter the tag name in the input field: `v1.0.0`
+   - Click "Run workflow"
+
+3. **Wait for the build:**
+   - The workflow will start automatically
+   - It will checkout the tag `v1.0.0` and build it
+   - Wait for the build to complete (usually 2-5 minutes)
+
+4. **Check the release:**
+   - Go to https://github.com/jakepi84/JellyfinM3UExporter/releases
+   - You should see a new release for `v1.0.0` with the built artifacts
+
+---
 
 ### Verification
 After pushing the new tag, you can verify it points to the correct commit with the workflow:

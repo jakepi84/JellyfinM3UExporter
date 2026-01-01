@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build and release (e.g., v1.0.0)'
+        required: true
+        type: string
 
 jobs:
   build:
@@ -13,6 +19,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -57,6 +65,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
           files: |
             *.zip
             *.zip.md5

@@ -66,7 +66,7 @@ If a tag is pushed but the release workflow doesn't trigger:
    ```
    If this command fails, the tag is pointing to a commit without the workflow.
 
-2. **Move the tag to the correct commit**: If the tag is on an old commit:
+2. **Option A: Move the tag to the correct commit**: If the tag is on an old commit:
    ```bash
    # Delete the old tag locally and remotely
    git tag -d v1.0.0
@@ -81,7 +81,15 @@ If a tag is pushed but the release workflow doesn't trigger:
    git push origin v1.0.0
    ```
 
-3. **Verify the workflow runs**: Check the [Actions tab](../../actions) in GitHub to see if the workflow was triggered.
+3. **Option B: Manually trigger the workflow**: If you don't want to move the tag:
+   - Go to the [Actions tab](../../actions/workflows/publish.yaml)
+   - Click "Run workflow"
+   - Enter the tag name (e.g., `v1.0.0`)
+   - Click "Run workflow"
+   
+   This will build and release from the specified tag even if the workflow file didn't exist when the tag was originally created.
+
+4. **Verify the workflow runs**: Check the [Actions tab](../../actions) in GitHub to see if the workflow was triggered.
 
 ## License
 
