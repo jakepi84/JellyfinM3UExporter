@@ -11,6 +11,30 @@ A Jellyfin plugin that exports user music playlists to M3U files.
 - Safety limits: Maximum 1000 playlists and 40,000 tracks per playlist
 - Creates a ".ignore" file in the export folder so Jellyfin will not pick these lists up and duplicate
 
+## Installation
+
+### From Plugin Repository (Recommended)
+
+Add this repository as a plugin source in Jellyfin:
+
+1. Open Jellyfin and navigate to **Dashboard** → **Plugins** → **Repositories**
+2. Click the **+** button to add a new repository
+3. Enter the following details:
+   - **Repository Name**: `JellyfinM3UExporter` (or any name you prefer)
+   - **Repository URL**: `https://github.com/jakepi84/JellyfinM3UExporter/raw/main/manifest.json`
+4. Click **Save**
+5. Go to **Dashboard** → **Plugins** → **Catalog**
+6. Find **M3U Exporter** in the list and click **Install**
+7. Restart Jellyfin when prompted
+
+### Manual Installation
+
+1. Download the latest `.zip` file from the [Releases](../../releases) page
+2. Extract the contents to your Jellyfin plugins directory:
+   - Linux: `/var/lib/jellyfin/plugins/M3U Exporter/`
+   - Windows: `%ProgramData%\Jellyfin\Server\plugins\M3U Exporter\`
+3. Restart Jellyfin
+
 ## Configuration
 
 1. Install the plugin in Jellyfin
@@ -48,13 +72,15 @@ To create a new release of the plugin:
 
 3. The GitHub Actions workflow will automatically:
    - Build the plugin
-   - Create a manifest.json file compatible with Jellyfin
+   - Create/update a `manifest.json` file compatible with Jellyfin plugin repositories
    - Package the plugin as a zip file
-   - Create a GitHub release with the artifacts and checksums
+   - Commit the updated `manifest.json` back to the main branch
+   - Create a GitHub release with the artifacts, checksums, and manifest
 
-4. The release artifacts can then be used to:
+4. The release artifacts and repository can then be used to:
    - Install the plugin manually in Jellyfin by extracting the zip to the plugins directory
-   - Add to a Jellyfin plugin repository by using the generated manifest.json
+   - Add this repository as a plugin source in Jellyfin using the repository URL: `https://github.com/jakepi84/JellyfinM3UExporter/raw/main/manifest.json`
+   - The `manifest.json` in this repository tracks all released versions of the plugin
 
 ### Troubleshooting Release Builds
 
