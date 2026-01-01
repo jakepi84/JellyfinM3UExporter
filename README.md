@@ -30,6 +30,26 @@ A Jellyfin plugin that exports user music playlists to M3U files.
 dotnet build Jellyfin.Plugin.M3UExporter.sln
 ```
 
+## Releasing
+
+To create a new release of the plugin:
+
+1. Create and push a new tag with a version number (e.g., `v1.0.0`):
+   ```bash
+   git tag v1.0.0
+   git push origin v1.0.0
+   ```
+
+2. The GitHub Actions workflow will automatically:
+   - Build the plugin
+   - Create a manifest.json file compatible with Jellyfin
+   - Package the plugin as a zip file
+   - Create a GitHub release with the artifacts and checksums
+
+3. The release artifacts can then be used to:
+   - Install the plugin manually in Jellyfin by extracting the zip to the plugins directory
+   - Add to a Jellyfin plugin repository by using the generated manifest.json
+
 ## License
 
 This project is licensed under the GNU General Public License v3.0 - see the LICENSE file for details.
