@@ -12,6 +12,12 @@ if [ -z "$VERSION" ] || [ -z "$ZIP_FILE" ]; then
     exit 1
 fi
 
+# Validate version format (should be X.Y.Z.W)
+if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    echo "Error: Invalid version format. Expected X.Y.Z.W (e.g., 1.0.1.0)"
+    exit 1
+fi
+
 if [ ! -f "$ZIP_FILE" ]; then
     echo "Error: ZIP file not found: $ZIP_FILE"
     exit 1
@@ -29,9 +35,17 @@ echo "Timestamp: $TIMESTAMP"
 
 # Extract changelog from build.yaml
 CHANGELOG=$(yq eval '.changelog' build.yaml)
+if [ -z "$CHANGELOG" ] || [ "$CHANGELOG" = "null" ]; then
+    echo "Warning: Could not extract changelog from build.yaml"
+    CHANGELOG="Release version $VERSION"
+fi
 
 # Extract targetAbi from build.yaml
 TARGET_ABI=$(yq eval '.targetAbi' build.yaml)
+if [ -z "$TARGET_ABI" ] || [ "$TARGET_ABI" = "null" ]; then
+    echo "Error: Could not extract targetAbi from build.yaml"
+    exit 1
+fi
 
 # Get repository URL from git remote
 REPO_URL=$(git config --get remote.origin.url | sed 's/\.git$//' | sed 's|git@github.com:|https://github.com/|')
@@ -60,7 +74,19 @@ NEW_VERSION=$(jq -n \
   }')
 
 # Update manifest.json
-# First, remove any existing entry with the same version from the first package
+# First, validate manifest.json exists and has at least one package
+if [ ! -f "manifest.json" ]; then
+    echo "Error: manifest.json not found"
+    exit 1
+fi
+
+PACKAGE_COUNT=$(jq '. | length' manifest.json)
+if [ "$PACKAGE_COUNT" -eq 0 ]; then
+    echo "Error: manifest.json is empty"
+    exit 1
+fi
+
+# Remove any existing entry with the same version from the first package
 jq --arg version "$VERSION" \
   '.[0].versions = [.[0].versions[] | select(.version != $version)]' \
   manifest.json > manifest.tmp.json
