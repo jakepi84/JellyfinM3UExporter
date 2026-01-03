@@ -70,20 +70,31 @@ To create a new release of the plugin:
    git pull origin main
    ```
 
-2. Create and push a new tag with a version number (e.g., `v1.0.0`):
+2. **Update version files** to match the release version you're about to create (e.g., for v1.0.1):
+   - Update `Directory.Build.props` - change `<Version>`, `<AssemblyVersion>`, and `<FileVersion>` to `1.0.1.0`
+   - Update `build.yaml` - change `version:` to `1.0.1.0` and update the `changelog:` with release notes
+   
+   Commit and push these changes:
    ```bash
-   git tag v1.0.0
-   git push origin v1.0.0
+   git add Directory.Build.props build.yaml
+   git commit -m "Bump version to 1.0.1.0"
+   git push origin main
    ```
 
-3. The GitHub Actions workflow will automatically:
+3. Create and push a new tag with a version number (e.g., `v1.0.1`):
+   ```bash
+   git tag v1.0.1
+   git push origin v1.0.1
+   ```
+
+4. The GitHub Actions workflow will automatically:
    - Build the plugin
    - Create/update a `manifest.json` file compatible with Jellyfin plugin repositories
    - Package the plugin as a zip file
    - Commit the updated `manifest.json` back to the main branch
    - Create a GitHub release with the artifacts, checksums, and manifest
 
-4. The release artifacts and repository can then be used to:
+5. The release artifacts and repository can then be used to:
    - Install the plugin manually in Jellyfin by extracting the zip to the plugins directory
    - Add this repository as a plugin source in Jellyfin using the repository URL: `https://github.com/jakepi84/JellyfinM3UExporter/raw/main/manifest.json`
    - The `manifest.json` in this repository tracks all released versions of the plugin
