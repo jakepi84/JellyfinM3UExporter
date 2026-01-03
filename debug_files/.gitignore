@@ -1,0 +1,5 @@
+# Ignore all files in the debug_files directory
+*
+
+# But don't ignore this .gitignore file
+!.gitignore

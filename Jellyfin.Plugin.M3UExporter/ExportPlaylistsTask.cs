@@ -299,13 +299,40 @@ public class ExportPlaylistsTask : IScheduledTask
         fromPath = Path.GetFullPath(fromPath);
         toPath = Path.GetFullPath(toPath);
 
-        var fromUri = new Uri(fromPath.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal) ? fromPath : fromPath + Path.DirectorySeparatorChar);
-        var toUri = new Uri(toPath);
+        // Split the paths into parts for manual comparison
+        var fromParts = fromPath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var toParts = toPath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
-        var relativeUri = fromUri.MakeRelativeUri(toUri);
-        var relativePath = Uri.UnescapeDataString(relativeUri.ToString());
+        // Find the common prefix
+        int commonLength = 0;
+        for (int i = 0; i < Math.Min(fromParts.Length, toParts.Length); i++)
+        {
+            if (string.Equals(fromParts[i], toParts[i], StringComparison.OrdinalIgnoreCase))
+            {
+                commonLength++;
+            }
+            else
+            {
+                break;
+            }
+        }
 
-        // Convert forward slashes to platform-specific directory separator
-        return relativePath.Replace('/', Path.DirectorySeparatorChar);
+        // Build the relative path
+        var relativeParts = new List<string>();
+
+        // Add ".." for each directory level we need to go up from fromPath
+        for (int i = commonLength; i < fromParts.Length; i++)
+        {
+            relativeParts.Add("..");
+        }
+
+        // Add the remaining path parts from toPath
+        for (int i = commonLength; i < toParts.Length; i++)
+        {
+            relativeParts.Add(toParts[i]);
+        }
+
+        // Join with forward slashes (M3U standard uses forward slashes)
+        return string.Join("/", relativeParts);
     }
 }
