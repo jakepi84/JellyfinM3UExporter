@@ -28,10 +28,10 @@ TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 echo "Timestamp: $TIMESTAMP"
 
 # Extract changelog from build.yaml
-CHANGELOG=$(grep -A 100 "^changelog:" build.yaml | tail -n +2 | sed '/^[a-zA-Z]/,$d' | sed 's/^  //g')
+CHANGELOG=$(yq eval '.changelog' build.yaml)
 
-# Extract targetAbi from build.yaml (handles both quoted and unquoted values)
-TARGET_ABI=$(grep "^targetAbi:" build.yaml | sed 's/^targetAbi:[[:space:]]*"\?\([^"]*\)"\?/\1/')
+# Extract targetAbi from build.yaml
+TARGET_ABI=$(yq eval '.targetAbi' build.yaml)
 
 # Get repository URL from git remote
 REPO_URL=$(git config --get remote.origin.url | sed 's/\.git$//' | sed 's|git@github.com:|https://github.com/|')
