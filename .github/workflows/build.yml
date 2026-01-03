@@ -69,21 +69,10 @@ jobs:
         name: jellyfin-m3u-exporter
         path: artifacts/jellyfin-m3u-exporter_${{ steps.get_version.outputs.VERSION }}.zip
     
-    - name: Update manifest.json
+    - name: Update manifest.json for release
       if: startsWith(github.ref, 'refs/tags/v')
       run: |
         ./update-manifest.sh "${{ steps.get_version.outputs.VERSION }}" "artifacts/jellyfin-m3u-exporter_${{ steps.get_version.outputs.VERSION }}.zip"
-    
-    - name: Commit updated manifest
-      if: startsWith(github.ref, 'refs/tags/v')
-      run: |
-        git config --local user.email "github-actions[bot]@users.noreply.github.com"
-        git config --local user.name "github-actions[bot]"
-        git add manifest.json
-        if ! git diff --staged --quiet; then
-          git commit -m "Update manifest.json for version ${{ steps.get_version.outputs.VERSION }} [skip ci]"
-          git push origin HEAD:main
-        fi
     
     - name: Create Release
       if: startsWith(github.ref, 'refs/tags/v')
@@ -95,6 +84,9 @@ jobs:
         prerelease: false
         make_latest: true
         fail_on_unmatched_files: true
-        files: artifacts/jellyfin-m3u-exporter_${{ steps.get_version.outputs.VERSION }}.zip
+        # Include plugin ZIP and manifest.json (generated in previous step)
+        files: |
+          artifacts/jellyfin-m3u-exporter_${{ steps.get_version.outputs.VERSION }}.zip
+          manifest.json
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
