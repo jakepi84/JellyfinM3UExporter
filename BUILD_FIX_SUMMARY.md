@@ -51,7 +51,7 @@ Instead of trying to commit manifest changes back to main during tag builds:
     git add manifest.json
     if ! git diff --staged --quiet; then
       git commit -m "Update manifest.json for version $VERSION [skip ci]"
-      git push origin HEAD:main  # ❌ FAILS in detached HEAD
+      git push origin HEAD:main  # ❌ FAILED in detached HEAD
     fi
 ```
 

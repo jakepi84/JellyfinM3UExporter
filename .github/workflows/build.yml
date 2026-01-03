@@ -84,6 +84,7 @@ jobs:
         prerelease: false
         make_latest: true
         fail_on_unmatched_files: true
+        # Include plugin ZIP and manifest.json (generated in previous step)
         files: |
           artifacts/jellyfin-m3u-exporter_${{ steps.get_version.outputs.VERSION }}.zip
           manifest.json
