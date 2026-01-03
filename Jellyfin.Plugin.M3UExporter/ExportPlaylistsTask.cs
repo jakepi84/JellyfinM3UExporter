@@ -243,10 +243,11 @@ public class ExportPlaylistsTask : IScheduledTask
 
         // Create M3U file
         var sanitizedPlaylistName = SanitizeFileName(playlist.Name);
-        var m3uFilePath = Path.Combine(exportPath, $"{sanitizedPlaylistName}.m3u");
+        var m3uFilePath = Path.Combine(exportPath, $"{sanitizedPlaylistName}.m3u8");
 
         var sb = new StringBuilder();
         sb.AppendLine("#EXTM3U");
+        sb.AppendLine("#EXT-X-VERSION:3");
 
         foreach (var item in items)
         {
