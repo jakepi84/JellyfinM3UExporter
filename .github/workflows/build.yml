@@ -24,7 +24,13 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
     
     - name: Install dependencies
-      run: sudo apt-get update && sudo apt-get install -y jq xmlstarlet
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y jq xmlstarlet
+        # Install yq for YAML parsing in update-manifest.sh
+        YQ_VERSION="v4.40.5"
+        sudo wget -qO /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64"
+        sudo chmod +x /usr/local/bin/yq
     
     - name: Extract version from Directory.Build.props
       id: get_version
