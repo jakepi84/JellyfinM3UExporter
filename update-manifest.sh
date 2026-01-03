@@ -54,7 +54,7 @@ REPO_URL=$(git config --get remote.origin.url | sed 's/\.git$//' | sed 's|git@gi
 TAG="v$(echo $VERSION | cut -d. -f1-3)"
 
 # Construct sourceUrl
-SOURCE_URL="${REPO_URL}/releases/download/${TAG}/m3u-exporter_${VERSION}.zip"
+SOURCE_URL="${REPO_URL}/releases/download/${TAG}/jellyfin-m3u-exporter_${VERSION}.zip"
 
 # Create new version entry
 NEW_VERSION=$(jq -n \
