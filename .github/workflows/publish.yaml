@@ -1,0 +1,194 @@
+name: 'Publish Plugin'
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build and release (e.g., v1.0.0)'
+        required: true
+        type: string
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      tag_name: ${{ steps.tag.outputs.name }}
+    steps:
+      - name: Determine Tag
+        id: tag
+        run: |
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+            # Validate tag format (should start with 'v' followed by version number)
+            # Allows suffixes with alphanumeric characters, dots, and hyphens only
+            if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
+              echo "Error: Invalid tag format. Tag must match pattern 'vX.Y.Z' or 'vX.Y.Z-suffix'"
+              echo "Examples: v1.0.0, v2.1.3, v1.0.0-beta, v1.0.0-rc.1"
+              exit 1
+            fi
+            echo "name=$TAG" >> $GITHUB_OUTPUT
+          else
+            echo "name=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.tag.outputs.name }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Build Jellyfin Plugin
+        uses: oddstr13/jellyfin-plugin-repository-manager@v1.1.1
+        id: jprm
+        with:
+          dotnet-target: 'net9.0'
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jellyfin-plugin-m3uexporter
+          retention-days: 90
+          if-no-files-found: error
+          path: ${{ steps.jprm.outputs.artifact }}
+
+  manifest:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: jellyfin-plugin-m3uexporter
+          path: ./artifacts
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install JPRM
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install jprm
+
+      - name: Initialize Repository Manifest
+        run: |
+          if [ ! -f manifest.json ]; then
+            echo "Initializing new manifest.json"
+            jprm repo init .
+          else
+            echo "manifest.json already exists"
+          fi
+
+      - name: Update Repository Manifest
+        run: |
+          REPO_URL="https://github.com/${{ github.repository }}/releases/download/${{ needs.build.outputs.tag_name }}"
+          
+          shopt -s nullglob
+          zipfiles=(./artifacts/*.zip)
+          shopt -u nullglob
+          
+          if [ ${#zipfiles[@]} -eq 0 ]; then
+            echo "Error: No zip files found in ./artifacts/"
+            exit 1
+          fi
+          
+          for zipfile in "${zipfiles[@]}"; do
+            echo "Adding $zipfile to manifest"
+            jprm --verbosity=debug repo add --plugin-url="${REPO_URL}/$(basename "$zipfile")" . "$zipfile"
+          done
+
+      - name: Commit and Push Manifest
+        run: |
+          MAX_RETRIES=3
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add manifest.json
+          if git diff --staged --quiet; then
+            echo "No changes to manifest.json"
+          else
+            git commit -m "Update manifest.json for ${{ needs.build.outputs.tag_name }}"
+            
+            # Try to push with retries to handle potential race conditions
+            retry_count=0
+            while [ $retry_count -lt $MAX_RETRIES ]; do
+              if git push origin main; then
+                echo "Successfully pushed manifest.json"
+                break
+              else
+                retry_count=$((retry_count + 1))
+                if [ $retry_count -lt $MAX_RETRIES ]; then
+                  echo "Push failed, attempt $retry_count of $MAX_RETRIES. Pulling and retrying..."
+                  git pull --rebase origin main
+                else
+                  echo "Failed to push after $MAX_RETRIES attempts"
+                  exit 1
+                fi
+              fi
+            done
+          fi
+
+      - name: Upload Manifest Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: repository-manifest
+          retention-days: 90
+          path: manifest.json
+
+  release:
+    needs: [build, manifest]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download Plugin Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: jellyfin-plugin-m3uexporter
+
+      - name: Download Manifest Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: repository-manifest
+
+      - name: Prepare Release Assets
+        run: |
+          for file in *.zip; do
+            if [ -f "$file" ]; then
+              md5sum "$file" > "$file.md5"
+              sha256sum "$file" > "$file.sha256"
+            fi
+          done
+          ls -la
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.build.outputs.tag_name }}
+          files: |
+            *.zip
+            *.zip.md5
+            *.zip.sha256
+            manifest.json
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
