@@ -1,41 +1,45 @@
-# Build Release Script
-# This script builds the plugin and creates a release ZIP file
-
 param(
     [string]$Version,
     [string]$ReleaseTag
 )
 
-# If not provided, extract from Directory.Build.props
+Write-Host "Building Release"
+Write-Host "================"
+Write-Host ""
+
 if ([string]::IsNullOrWhiteSpace($Version)) {
-    Write-Host "Extracting version from Directory.Build.props..."
-    [xml]$props = Get-Content "Directory.Build.props"
-    $Version = $props.Project.PropertyGroup.Version
-    Write-Host "Found version: $Version"
+    # Get latest git tag
+    $latestTag = git describe --tags --abbrev=0 2>$null
+    if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($latestTag)) {
+        # Convert v1.0.1 to 1.0.1.0
+        $tagVersion = $latestTag -replace '^v', ''
+        if ($tagVersion -match '^\d+\.\d+\.\d+$') {
+            $Version = "$tagVersion.0"
+        } else {
+            $Version = $tagVersion
+        }
+        Write-Host "Found latest tag: $latestTag"
+    } else {
+        Write-Error "Could not get latest git tag. Ensure git is configured and tags exist."
+        exit 1
+    }
 }
 
 if ([string]::IsNullOrWhiteSpace($ReleaseTag)) {
-    # Convert 1.0.1.0 to v1.0.1
-    $parts = $Version.Split('.')
-    $ReleaseTag = "v$($parts[0]).$($parts[1]).$($parts[2])"
-    Write-Host "Using release tag: $ReleaseTag"
+    $ReleaseTag = "v$($Version.Substring(0, $Version.LastIndexOf('.')))"
 }
 
-# Clean previous builds
 if (Test-Path "artifacts") {
     Remove-Item -Recurse -Force "artifacts"
 }
 New-Item -ItemType Directory -Path "artifacts/jellyfin-m3u-exporter" | Out-Null
 
-Write-Host "`n--- Building Release ---"
 Write-Host "Version: $Version"
 Write-Host "Tag: $ReleaseTag"
-
-# Restore dependencies
-Write-Host "`nRestoring dependencies..."
+Write-Host ""
+Write-Host "Restoring dependencies..."
 dotnet restore
 
-# Build the project
 Write-Host "Building project..."
 dotnet build --configuration Release --no-restore -p:TreatWarningsAsErrors=false
 if ($LASTEXITCODE -ne 0) {
@@ -43,23 +47,21 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-# Copy the DLL
 Write-Host "Packaging plugin..."
 Copy-Item "Jellyfin.Plugin.M3UExporter/bin/Release/net9.0/Jellyfin.Plugin.M3UExporter.dll" "artifacts/jellyfin-m3u-exporter/"
 
-# Create ZIP file
 $ZipName = "jellyfin-m3u-exporter_$Version.zip"
-$ZipPath = Join-Path (Get-Location) "artifacts" $ZipName
+$ZipPath = Join-Path -Path "artifacts" -ChildPath $ZipName
 
 Write-Host "Creating ZIP: $ZipName"
 Compress-Archive -Path "artifacts/jellyfin-m3u-exporter" -DestinationPath $ZipPath -Force
 
 if (Test-Path $ZipPath) {
     $size = (Get-Item $ZipPath).Length / 1KB
-    Write-Host "✓ ZIP created successfully: $ZipName ($([Math]::Round($size, 2)) KB)"
-    Write-Host "`nBuild successful!"
+    Write-Host "ZIP created: $ZipName ($([Math]::Round($size, 2)) KB)"
+    Write-Host ""
+    Write-Host "Build successful!"
     Write-Host "Location: $ZipPath"
-    Write-Host "`nNext step: Run update-manifest.ps1 to update manifest.json"
 } else {
     Write-Error "Failed to create ZIP file!"
     exit 1
