@@ -105,7 +105,7 @@ If a tag is pushed but the release workflow doesn't trigger:
 
 1. **Check if the tag points to the correct commit**: The workflow file must exist at the commit the tag points to. You can verify this with:
    ```bash
-   git show <tag-name>:.github/workflows/publish.yaml
+   git show <tag-name>:.github/workflows/build.yml
    ```
    If this command fails, the tag is pointing to a commit without the workflow.
 
@@ -125,7 +125,7 @@ If a tag is pushed but the release workflow doesn't trigger:
    ```
 
 3. **Option B: Manually trigger the workflow**: If you don't want to move the tag:
-   - Go to the [Actions tab](../../actions/workflows/publish.yaml)
+   - Go to the [Actions tab](../../actions/workflows/build.yml)
    - Click "Run workflow"
    - Enter the tag name (e.g., `v1.0.0`)
    - Click "Run workflow"
