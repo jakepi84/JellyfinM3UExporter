@@ -14,10 +14,11 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Skip if the commit is from github-actions bot
+    if: "!contains(github.event.head_commit.message, '[skip ci]') && github.actor != 'github-actions[bot]'"
     permissions:
-      contents: read
-    outputs:
-      tag_name: ${{ steps.tag.outputs.name }}
+      contents: write
+    
     steps:
       - name: Determine Tag
         id: tag
@@ -40,155 +41,75 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ steps.tag.outputs.name }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+    
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y jq xmlstarlet
+
+      - name: Extract version from Directory.Build.props
+        id: get_version
+        run: |
+          VERSION=$(xmlstarlet sel -t -v "//Version" Directory.Build.props)
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          # Extract X.Y.Z from X.Y.Z.W format
+          TAG="v$(echo $VERSION | cut -d. -f1-3)"
+          echo "TAG=$TAG" >> $GITHUB_OUTPUT
+          echo "Extracted version: $VERSION"
+          echo "Tag will be: $TAG"
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '9.0.x'
 
-      - name: Build Jellyfin Plugin
-        uses: oddstr13/jellyfin-plugin-repository-manager@v1.1.1
-        id: jprm
-        with:
-          dotnet-target: 'net9.0'
+      - name: Restore dependencies
+        run: dotnet restore
 
-      - name: Upload Artifact
+      - name: Build
+        run: dotnet build --configuration Release --no-restore -p:TreatWarningsAsErrors=false
+
+      - name: Create plugin package
+        run: |
+          mkdir -p artifacts/m3u-exporter
+          cp Jellyfin.Plugin.M3UExporter/bin/Release/net9.0/Jellyfin.Plugin.M3UExporter.dll artifacts/m3u-exporter/
+          # Set deterministic timestamps for reproducible builds (Unix epoch)
+          find artifacts/m3u-exporter -exec touch -d '1970-01-01 00:00:00 UTC' {} +
+          cd artifacts
+          zip -r -X "m3u-exporter_${{ steps.get_version.outputs.VERSION }}.zip" m3u-exporter
+
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: jellyfin-plugin-m3uexporter
-          retention-days: 90
-          if-no-files-found: error
-          path: ${{ steps.jprm.outputs.artifact }}
+          path: artifacts/m3u-exporter_${{ steps.get_version.outputs.VERSION }}.zip
 
-  manifest:
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-        with:
-          ref: main
-          
-      - name: Download Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: jellyfin-plugin-m3uexporter
-          path: ./artifacts
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
-
-      - name: Install JPRM
+      - name: Update manifest.json
+        if: startsWith(github.ref, 'refs/tags/v')
         run: |
-          python3 -m pip install --upgrade pip
-          python3 -m pip install jprm
+          ./update-manifest.sh "${{ steps.get_version.outputs.VERSION }}" "artifacts/m3u-exporter_${{ steps.get_version.outputs.VERSION }}.zip"
 
-      - name: Initialize Repository Manifest
+      - name: Commit updated manifest
+        if: startsWith(github.ref, 'refs/tags/v')
         run: |
-          if [ ! -f manifest.json ]; then
-            echo "Initializing new manifest.json"
-            jprm repo init .
-          else
-            echo "manifest.json already exists"
-          fi
-
-      - name: Update Repository Manifest
-        run: |
-          REPO_URL="https://github.com/${{ github.repository }}/releases/download/${{ needs.build.outputs.tag_name }}"
-          
-          shopt -s nullglob
-          zipfiles=(./artifacts/*.zip)
-          shopt -u nullglob
-          
-          if [ ${#zipfiles[@]} -eq 0 ]; then
-            echo "Error: No zip files found in ./artifacts/"
-            exit 1
-          fi
-          
-          for zipfile in "${zipfiles[@]}"; do
-            echo "Adding $zipfile to manifest"
-            jprm --verbosity=debug repo add --plugin-url="${REPO_URL}/$(basename "$zipfile")" . "$zipfile"
-          done
-
-      - name: Commit and Push Manifest
-        run: |
-          MAX_RETRIES=3
-          
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
           git add manifest.json
-          if git diff --staged --quiet; then
-            echo "No changes to manifest.json"
-          else
-            git commit -m "Update manifest.json for ${{ needs.build.outputs.tag_name }}"
-            
-            # Try to push with retries to handle potential race conditions
-            retry_count=0
-            while [ $retry_count -lt $MAX_RETRIES ]; do
-              if git push origin main; then
-                echo "Successfully pushed manifest.json"
-                break
-              else
-                retry_count=$((retry_count + 1))
-                if [ $retry_count -lt $MAX_RETRIES ]; then
-                  echo "Push failed, attempt $retry_count of $MAX_RETRIES. Pulling and retrying..."
-                  git pull --rebase origin main
-                else
-                  echo "Failed to push after $MAX_RETRIES attempts"
-                  exit 1
-                fi
-              fi
-            done
+          if ! git diff --staged --quiet; then
+            git commit -m "Update manifest.json for version ${{ steps.get_version.outputs.VERSION }} [skip ci]"
+            git push origin HEAD:main
           fi
 
-      - name: Upload Manifest Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: repository-manifest
-          retention-days: 90
-          path: manifest.json
-
-  release:
-    needs: [build, manifest]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Download Plugin Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: jellyfin-plugin-m3uexporter
-
-      - name: Download Manifest Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: repository-manifest
-
-      - name: Prepare Release Assets
-        run: |
-          for file in *.zip; do
-            if [ -f "$file" ]; then
-              md5sum "$file" > "$file.md5"
-              sha256sum "$file" > "$file.sha256"
-            fi
-          done
-          ls -la
-
-      - name: Create GitHub Release
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ needs.build.outputs.tag_name }}
-          files: |
-            *.zip
-            *.zip.md5
-            *.zip.sha256
-            manifest.json
+          tag_name: ${{ steps.get_version.outputs.TAG }}
+          name: Release ${{ steps.get_version.outputs.TAG }}
           draft: false
           prerelease: false
-          generate_release_notes: true
+          make_latest: true
+          fail_on_unmatched_files: true
+          files: artifacts/m3u-exporter_${{ steps.get_version.outputs.VERSION }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
