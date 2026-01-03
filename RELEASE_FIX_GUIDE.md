@@ -89,10 +89,29 @@ This command should display the workflow file contents. If it shows an error, th
 ## Prevention
 In the future, always create tags from the `main` branch (or whichever branch contains your GitHub Actions workflows). The workflow file must exist at the tagged commit for the workflow to trigger.
 
+### IMPORTANT: Update Version Before Tagging
+Before creating a new release tag, you must first update the version in `Directory.Build.props` to match the tag you're about to create.
+
 ```bash
 # Best practice for creating release tags
 git checkout main
 git pull origin main
+
+# 1. Update Directory.Build.props with the new version (e.g., 1.0.1.0)
+#    Edit all three version fields: Version, AssemblyVersion, FileVersion
+
+# 2. Commit the version change
+git add Directory.Build.props
+git commit -m "Bump version to 1.0.1.0"
+git push origin main
+
+# 3. Create and push the tag
 git tag v1.0.1
 git push origin v1.0.1
 ```
+
+**Why this is required:**
+- The workflow checks out the tag to build the plugin
+- The build uses the version from `Directory.Build.props` at that tag
+- The manifest.json is updated with the version from the built artifact
+- If `Directory.Build.props` has version `1.0.0.0` but the tag is `v1.0.1`, the manifest will incorrectly show version `1.0.0.0`
