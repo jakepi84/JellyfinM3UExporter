@@ -33,7 +33,12 @@ if (-not (Test-Path "manifest.json")) {
     exit 1
 }
 
-$manifest = Get-Content "manifest.json" -Raw | ConvertFrom-Json
+$manifestArray = Get-Content "manifest.json" -Raw | ConvertFrom-Json
+
+# Ensure it's an array
+if ($manifestArray -isnot [Array]) {
+    $manifestArray = @($manifestArray)
+}
 
 $md5 = New-Object System.Security.Cryptography.MD5CryptoServiceProvider
 $hash = $md5.ComputeHash([System.IO.File]::ReadAllBytes((Resolve-Path $ZipPath)))
@@ -55,7 +60,7 @@ Write-Host ""
 
 $timestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
 
-$newVersion = @{
+$newVersion = [PSCustomObject]@{
     version = $Version
     changelog = $changelog
     targetAbi = $targetAbi
@@ -64,11 +69,13 @@ $newVersion = @{
     timestamp = $timestamp
 }
 
-$manifest[0].versions = @($newVersion) + ($manifest[0].versions | Where-Object { $_.version -ne $Version })
+# Update the first package's versions array
+$package = $manifestArray[0]
+$existingVersions = $package.versions | Where-Object { $_.version -ne $Version }
+$package.versions = @($newVersion) + $existingVersions
 
-$json = $manifest | ConvertTo-Json -Depth 10
-$json = $json -replace '(?m)^', '  ' -replace '^\s{2}\[', '[' -replace '^\s{2}\]', ']'
-$json = $json -replace '(?m)^  ', ''
+# Convert to JSON maintaining array structure
+$json = ConvertTo-Json @($package) -Depth 10
 Set-Content "manifest.json" $json -Encoding UTF8
 
 Write-Host "Updated manifest.json"
