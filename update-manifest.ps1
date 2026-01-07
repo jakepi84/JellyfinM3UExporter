@@ -2,8 +2,21 @@ param(
     [string]$Version,
     [string]$ZipPath,
     [string]$ReleaseTag,
-    [string]$RepositoryUrl = "https://github.com/jakepi84/JellyfinM3UExporter"
+    [string]$RepositorySlug
 )
+
+# Infer RepositorySlug from git remote if not provided
+if ([string]::IsNullOrWhiteSpace($RepositorySlug)) {
+    $remote = (git config --get remote.origin.url 2>$null) -replace '\.git$', ''
+    if ($remote -match 'github.com[:/](.+/.+)$') {
+        $RepositorySlug = $matches[1]
+    } else {
+        Write-Error "Could not infer RepositorySlug from git remote. Please provide -RepositorySlug."
+        exit 1
+    }
+}
+
+$RepositoryUrl = "https://github.com/$RepositorySlug"
 
 if ([string]::IsNullOrWhiteSpace($Version)) {
     Write-Error "Version is required"
@@ -47,7 +60,7 @@ $checksum = [System.BitConverter]::ToString($hash).Replace("-", "").ToLower()
 Write-Host "Checksum: $checksum"
 
 $buildYaml = if (Test-Path "build.yaml") { Get-Content "build.yaml" -Raw } else { $null }
-$targetAbi = if ($buildYaml -and ($buildYaml -match 'targetAbi:\s*"?([^"\n]+)"?')) { $matches[1] } else { "10.11.5.0" }
+$targetAbi = if ($buildYaml -and ($buildYaml -match 'targetAbi:\s*"?([^"\n]+)"?')) { $matches[1] } else { "10.10.0.0" }
 
 # Build changelog from latest commit message; fallback to build.yaml or default
 $changelog = $null
