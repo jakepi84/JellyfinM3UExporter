@@ -9,6 +9,14 @@
         "category":  "General",
         "versions":  [
                          {
+                             "version":  "1.2.2.0",
+                             "changelog":  "Version 1.2.2 - Cleanup build scripts and obsolete GitHub workflows ",
+                             "targetAbi":  "10.11.5.0",
+                             "sourceUrl":  "https://github.com/jakepi84/JellyfinM3UExporter/releases/download/v1.2.2/jellyfin-m3u-exporter_1.2.2.0.zip",
+                             "checksum":  "8efd6088e857992d38a86c694022e98e",
+                             "timestamp":  "2026-01-07T14:45:53Z"
+                         },
+                         {
                              "version":  "1.2.1.0",
                              "changelog":  "Version 1.2.1 - file cleanup: remove obsolete release files ",
                              "targetAbi":  "10.11.5.0",
