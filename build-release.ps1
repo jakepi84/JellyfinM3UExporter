@@ -41,7 +41,7 @@ Write-Host "Restoring dependencies..."
 dotnet restore
 
 Write-Host "Building project..."
-dotnet build --configuration Release --no-restore -p:TreatWarningsAsErrors=false
+dotnet build --configuration Release --no-restore -p:TreatWarningsAsErrors=false -p:Version=$Version -p:AssemblyVersion=$Version -p:FileVersion=$Version
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Build failed!"
     exit 1
@@ -59,6 +59,18 @@ Compress-Archive -Path "artifacts/jellyfin-m3u-exporter" -DestinationPath $ZipPa
 if (Test-Path $ZipPath) {
     $size = (Get-Item $ZipPath).Length / 1KB
     Write-Host "ZIP created: $ZipName ($([Math]::Round($size, 2)) KB)"
+    Write-Host ""
+    Write-Host "Updating manifest.json..."
+    if (Test-Path "update-manifest.ps1") {
+        & ./update-manifest.ps1 -Version $Version -ZipPath $ZipPath -ReleaseTag $ReleaseTag
+        if ($LASTEXITCODE -ne 0) {
+            Write-Warning "Manifest update script reported an error."
+        } else {
+            Write-Host "Manifest updated."
+        }
+    } else {
+        Write-Warning "update-manifest.ps1 not found; skipping manifest update."
+    }
     Write-Host ""
     Write-Host "Build successful!"
     Write-Host "Location: $ZipPath"

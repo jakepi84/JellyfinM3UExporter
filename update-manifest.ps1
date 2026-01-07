@@ -46,9 +46,27 @@ $checksum = [System.BitConverter]::ToString($hash).Replace("-", "").ToLower()
 
 Write-Host "Checksum: $checksum"
 
-$buildYaml = Get-Content "build.yaml" -Raw
-$targetAbi = if ($buildYaml -match 'targetAbi:\s*"?([^"\n]+)"?') { $matches[1] } else { "10.11.5.0" }
-$changelog = if ($buildYaml -match 'changelog:\s*>?\s*(.+?)(?=^[a-z]|$)') { $matches[1].Trim() } else { "Release version $Version" }
+$buildYaml = if (Test-Path "build.yaml") { Get-Content "build.yaml" -Raw } else { $null }
+$targetAbi = if ($buildYaml -and ($buildYaml -match 'targetAbi:\s*"?([^"\n]+)"?')) { $matches[1] } else { "10.11.5.0" }
+
+# Build changelog from latest commit message; fallback to build.yaml or default
+$changelog = $null
+$commitMessage = $null
+try {
+    $commitMessage = git log -1 --pretty=%B 2>$null
+} catch { $commitMessage = $null }
+
+if (-not [string]::IsNullOrWhiteSpace($commitMessage)) {
+    $cleanCommit = ($commitMessage.Trim())
+    # Optionally prefix with human-friendly version (major.minor.patch)
+    $verParts = $Version.Split('.')
+    $shortVer = if ($verParts.Length -ge 3) { "$($verParts[0]).$($verParts[1]).$($verParts[2])" } else { $Version }
+    $changelog = "Version $shortVer - $cleanCommit"
+} elseif ($buildYaml -and ($buildYaml -match 'changelog:\s*>?\s*(.+?)(?=^[a-z]|$)')) {
+    $changelog = $matches[1].Trim()
+} else {
+    $changelog = "Release version $Version"
+}
 
 Write-Host "TargetAbi: $targetAbi"
 Write-Host "Changelog: $changelog"
