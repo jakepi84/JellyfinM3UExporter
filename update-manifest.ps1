@@ -89,6 +89,19 @@ $newVersion = [PSCustomObject]@{
 
 # Update the first package's versions array
 $package = $manifestArray[0]
+
+# If an existing entry matches the new one (excluding timestamp), skip update
+$existingEntry = $package.versions | Where-Object { $_.version -eq $Version } | Select-Object -First 1
+if ($existingEntry -and `
+    $existingEntry.checksum -eq $checksum -and `
+    $existingEntry.sourceUrl -eq $sourceUrl -and `
+    $existingEntry.targetAbi -eq $targetAbi -and `
+    $existingEntry.changelog -eq $changelog) {
+    Write-Host "Manifest already up to date; no changes made."
+    return
+}
+
+# Replace any existing entry for this version, otherwise prepend new
 $existingVersions = $package.versions | Where-Object { $_.version -ne $Version }
 $package.versions = @($newVersion) + $existingVersions
 
